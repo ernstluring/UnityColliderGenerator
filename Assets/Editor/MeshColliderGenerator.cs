@@ -20,10 +20,10 @@ public class MeshColliderGeneratorEditorWindow : EditorWindow
     const int MAX_VERTEX_DEFAULT_VALUE = 64;
 
     [SerializeField]
-    [Range(1, 1024)]
+    [Range(1f, 1024f)]
     int _maxColliders = MAX_COLLIDERS_DEFAULT_VALUE;
     [SerializeField]
-    [Range(3, 1024)]
+    [Range(3f, 1024f)]
     int _maxVertex = MAX_VERTEX_DEFAULT_VALUE;
     [SerializeField]
     bool _usePrimitives = false;
