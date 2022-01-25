@@ -8,5 +8,6 @@ VHACD is used as the convex decomposition library, found here: https://github.co
 1. Open the editor by going to Window -> Mesh Collider Generator.
 2. Select a gameobject with a Mesh in the input field.
 3. Optionally, set custom build settings values.
-4. Optionally, choose to only use primitive colliders (BoxCollider)
+4. Optionally, choose to only use primitive colliders (BoxCollider).
+5. Optionally, choose to also update prefabs using the mesh.
 5. Press the Build Colliders button.
