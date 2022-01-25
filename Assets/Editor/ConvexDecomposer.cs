@@ -9,7 +9,7 @@ using Util;
 public class ConvexDecomposer
 {
     static readonly string BUILD_COLLIDERS_NAME = "BuildColliders";
-    public static void Build(GameObject target, VHACD vhacd, Optional<ColliderPrimitiveType> primitiveType = new Optional<ColliderPrimitiveType>())
+    public static Transform Build(GameObject target, VHACD vhacd, Optional<ColliderPrimitiveType> primitiveType = new Optional<ColliderPrimitiveType>())
     {
         Assert.IsNotNull(vhacd, "The vhacd object cannot be null");
 
@@ -60,6 +60,7 @@ public class ConvexDecomposer
             }
 
         }
+        return wrapperObjectTrans;
     }
 
     private static Transform GetOrCreateWrapperObject(GameObject target)

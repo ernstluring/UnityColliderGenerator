@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEditor;
 using MeshProcess;
 using Util;
@@ -29,12 +31,15 @@ public class MeshColliderGeneratorEditorWindow : EditorWindow
     bool _usePrimitives = false;
     [SerializeField]
     ColliderPrimitiveType _primitiveType;
+    [SerializeField]
+    bool _updatePrefabs = true;
 
     SerializedObject _serializedObject;
     SerializedProperty _maxCollidersProp;
     SerializedProperty _maxVertexProp;
     SerializedProperty _usePrimitivesProp;
     SerializedProperty _primitiveTypeProp;
+    SerializedProperty _updatePrefabsProp;
 
     [MenuItem("Window/Mesh Collider Generator")]
     static void OpenWindow()
@@ -51,6 +56,7 @@ public class MeshColliderGeneratorEditorWindow : EditorWindow
         _maxVertexProp = _serializedObject.FindProperty("_maxVertex");
         _usePrimitivesProp = _serializedObject.FindProperty("_usePrimitives");
         _primitiveTypeProp = _serializedObject.FindProperty("_primitiveType");
+        _updatePrefabsProp = _serializedObject.FindProperty("_updatePrefabs");
     }
 
     private void OnGUI()
@@ -85,6 +91,8 @@ public class MeshColliderGeneratorEditorWindow : EditorWindow
         if (_usePrimitivesProp.boolValue)
             EditorGUILayout.PropertyField(_primitiveTypeProp);
 
+        EditorGUILayout.PropertyField(_updatePrefabsProp);
+
         EditorGUILayout.Separator();
 
         if (_targetObject == null)
@@ -97,7 +105,11 @@ public class MeshColliderGeneratorEditorWindow : EditorWindow
             _vhacd.m_parameters.m_maxConvexHulls = (uint)_maxColliders;
             _vhacd.m_parameters.m_maxNumVerticesPerCH = (uint)_maxVertex;
             Optional<ColliderPrimitiveType> usePrimitives = _usePrimitives ? _primitiveType : Optional<ColliderPrimitiveType>.NullOpt();
-            ConvexDecomposer.Build(_targetObject, _vhacd, usePrimitives);
+            Transform buildColliders = ConvexDecomposer.Build(_targetObject, _vhacd, usePrimitives);
+            if (_updatePrefabs)
+            {
+                FindAndUpdatePrefabs(buildColliders);
+            }
         }
         GUI.enabled = true;
 
@@ -110,6 +122,60 @@ public class MeshColliderGeneratorEditorWindow : EditorWindow
         }
 
         _serializedObject.ApplyModifiedProperties();
+    }
+
+    void FindAndUpdatePrefabs(Transform buildColliders)
+    {
+        string[] allPrefabPaths = FindAllPrefabPathsInProject();
+
+        foreach (var path in allPrefabPaths)
+        {
+            using (var editingScope = new PrefabUtility.EditPrefabContentsScope(path))
+            {
+                // Find out if the prefab uses the input mesh
+                Assert.IsNotNull(_targetMesh);
+                var meshFilter = FindMeshFilterWithMeshRecursive(editingScope.prefabContentsRoot, _targetMesh.sharedMesh);
+                if (meshFilter.HasValue)
+                {
+                    // Destroy already existing collider objects in the prefab
+                    Transform colliders = meshFilter.Value.transform.Find(buildColliders.name);
+                    if (colliders != null)
+                    {
+                        DestroyImmediate(colliders.gameObject);
+                    }
+
+                    // Copy the buildColliders Transform and attach to prefab
+                    var clone = Instantiate(buildColliders);
+                    clone.SetParent(meshFilter.Value.transform);
+                    clone.gameObject.name = buildColliders.gameObject.name;
+                    Debug.LogFormat("Updated prefab {0} with the generated colliders", editingScope.prefabContentsRoot.name);
+                }
+            }
+        }
+    }
+
+    Optional<MeshFilter> FindMeshFilterWithMeshRecursive(GameObject obj, Mesh meshToFind)
+    {
+        var meshFilter = obj.GetComponent<MeshFilter>();
+        if (meshFilter != null && meshFilter.sharedMesh == meshToFind)
+        {
+            return meshFilter;
+        }
+
+        for (int i = 0; i < obj.transform.childCount; i++)
+        {
+            var child = obj.transform.GetChild(i);
+            var childMeshFilter = FindMeshFilterWithMeshRecursive(child.gameObject, meshToFind);
+            if (childMeshFilter.HasValue) 
+                return childMeshFilter;
+        }
+
+        return null;
+    }
+
+    string[] FindAllPrefabPathsInProject()
+    {
+        return AssetDatabase.GetAllAssetPaths().Where(p => p.Contains(".prefab")).ToArray();
     }
 
 }
